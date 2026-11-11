@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aquisição de clientes com IA — Crivo</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+<style>
+:root{
+  /* destaque é preto: barra, botões, seleção e anel */
+  --destaque:#0A0A0A; --destaque-hover:#27272A;
+  --texto:#0A0A0A; --fraco:#71717A; --borda:#E4E4E7; --fundo-sel:#FAFAFA; --trilho:#F0F0F2;
+  /* coluna de celular em qualquer tela; --w é a largura útil dentro dela */
+  --coluna:560px; --margem:24px; --w:min(calc(var(--coluna) - 2 * var(--margem)), calc(100vw - 2 * var(--margem)));
+  --h:56px; --raio:16px;
+  /* mesmo espaço entre pergunta, resposta e botão */
+  --respiro:28px;
+  /* campos e opções: borda quase invisível, quem dá o contorno é a sombra */
+  --borda-campo:#F0F0F2; --borda-campo-ativa:#DADADF;
+  --sombra:0 1px 2px rgba(10,10,10,.04),0 4px 14px rgba(10,10,10,.06);
+  --sombra-ativa:0 1px 2px rgba(10,10,10,.06),0 6px 20px rgba(10,10,10,.10);
+}
+*{margin:0;box-sizing:border-box}
+/* sem o flash cinza que o Safari do celular pinta no que você toca, nem contorno de foco ao tocar */
+html{-webkit-tap-highlight-color:transparent}
+button:focus:not(:focus-visible){outline:none}
+html,body{height:100%}
+body{min-height:100dvh;background:#fff;color:var(--texto);font-family:'Geist',-apple-system,sans-serif;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+.coluna{width:100%;max-width:var(--coluna);padding:0 var(--margem)}
+/* barra de progresso dentro da margem, arredondada, já começa preenchida */
+.progresso{height:8px;background:var(--trilho);border-radius:99px;margin-top:40px;overflow:hidden}
+.progresso i{display:block;height:100%;width:6%;background:var(--destaque);border-radius:99px;transition:width .4s cubic-bezier(.2,.8,.2,1)}
+main{flex:1;width:100%;max-width:var(--coluna);padding:24px var(--margem) calc(24px + env(safe-area-inset-bottom));display:flex;align-items:center;overflow-y:auto}
+.tela{display:none;width:100%;text-align:center}
+/* tela nova: título e respostas sobem e aparecem; o botão sobe junto mas nunca fica
+   invisível, senão parece que ele pisca (o da tela nova fica quase no mesmo lugar) */
+.tela.on{display:block}
+.tela.on>:not(.acao){animation:sobe .4s cubic-bezier(.2,.8,.2,1)}
+.tela.on>.acao{animation:desliza .4s cubic-bezier(.2,.8,.2,1)}
+@keyframes desliza{from{transform:translateY(16px)}to{transform:none}}
+@keyframes sobe{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.num{display:none}
+/* pretty enche a linha até a borda e só evita palavra sozinha no fim; balance deixava as linhas curtas */
+h1{font-size:min(34px,calc(var(--w) / 12.6));line-height:1.2;font-weight:700;letter-spacing:-.028em;text-wrap:pretty}
+/* abertura em 3 linhas e descrição em 1, em qualquer largura */
+.intro h1{font-size:min(40px,calc(var(--w) / 11.8));letter-spacing:-.032em;text-wrap:balance}
+.ajuda{color:var(--fraco);font-size:min(18px,calc(var(--w) / 20.5));line-height:1.45;margin-top:12px}
+/* a linha é da .campo (largura toda); o input só tem a largura do texto e fica no centro dela,
+   então o cursor pisca no começo do "Seu nome" e o texto digitado cresce a partir do centro */
+/* nas perguntas, a caixa do título tem ~.25em vazio abaixo das letras; desconta pra o espaço
+   título→resposta parecer igual ao resposta→botão */
+.tela:not(.intro):not(.fim) h1{margin-bottom:-.25em}
+.campo{margin-top:var(--respiro);border-bottom:2.5px solid var(--borda);text-align:center;cursor:text;transition:border-color .15s}
+.campo:focus-within{border-color:var(--destaque)}
+/* com texto escrito, a linha continua preta mesmo fora do campo; vazio, volta pro cinza */
+.campo:has(input:not(:placeholder-shown)){border-color:var(--destaque)}
+.campo:has(input.erro){border-color:#EF4444;animation:treme .3s}
+/* campo de digitar: só uma linha embaixo, sem caixa e sem sombra */
+input{width:auto;max-width:100%;background:transparent;border:0;border-radius:0;color:var(--texto);font:inherit;font-size:24px;font-weight:500;text-align:left;padding:10px 0;outline:none}
+input::placeholder{color:#D9D9DE;font-weight:400}
+.ops.erro{animation:treme .3s}
+.ops.erro .op{border-color:#EF4444}
+@keyframes treme{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.ops{display:flex;flex-direction:column;gap:10px;margin-top:var(--respiro);text-align:left}
+/* card de opção: só contorno, sem sombra */
+.op{display:flex;align-items:center;gap:12px;min-height:68px;border:1.5px solid var(--borda);background:#fff;border-radius:var(--raio);padding:16px;font-size:17px;line-height:1.4;letter-spacing:.02em;cursor:pointer;transition:border-color .12s,box-shadow .12s}
+/* selecionada: contorno só um pouco mais forte e sombra maior; o preto fica na letra e na caixinha */
+.op.sel{border-color:#A1A1AA}
+/* clique (como o whileTap do Animate UI): a opção afunda e volta com uma mola que passa
+   um tiquinho do tamanho antes de assentar. Só nas opções, não nos botões.
+   A classe .apertando vem do JS, que segura o afundar inteiro mesmo num clique rápido. */
+.op{transition:border-color .12s,background .12s,transform .32s cubic-bezier(.34,1.25,.64,1);-webkit-tap-highlight-color:transparent}
+/* múltipla escolha não troca de página: a volta é curta e sem mola, terminando onde a escolha única é cortada */
+.ops.multi .op{transition:border-color .12s,background .12s,transform .15s cubic-bezier(.2,.8,.2,1)}
+button.ok.apertando{transform:scale(.992);transition:background .15s,transform .12s cubic-bezier(.2,.8,.2,1)}
+.op.apertando{transform:scale(.992);transition:border-color .12s,background .12s,transform .12s cubic-bezier(.2,.8,.2,1)}
+button.ok{-webkit-tap-highlight-color:transparent}
+/* escolha única: seta na ponta direita, dizendo que tocar ali já escolhe e avança.
+   Na múltipla escolha não tem seta, porque tocar só marca a caixinha. */
+.ops:not(.multi) .op::after{content:'';width:18px;height:18px;margin-left:auto;flex:0 0 auto;opacity:.45;transition:opacity .12s;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A0A0A' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat}
+/* letra numa bolinha cinza, sem contorno */
+.op .letra{min-width:22px;height:22px;border:0;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--texto);background:#F0F0F2;flex:0 0 auto}
+.op.sel .letra{background:var(--destaque);color:#fff}
+/* múltipla escolha: mesmo card, bolinha vazia no lugar da letra.
+   Marcada, a bolinha enche de preto com check branco e o contorno do card fica preto. */
+.op .caixa{min-width:22px;height:22px;border:1.5px solid var(--borda);border-radius:50%;background:#fff;display:grid;place-items:center;flex:0 0 auto;transition:background .12s,border-color .12s}
+.op .caixa svg{width:12px;height:12px;opacity:0;stroke:#fff;transition:opacity .12s}
+.ops.multi .op.sel{border-color:var(--destaque)}
+.op.sel .caixa{background:var(--destaque);border-color:var(--destaque)}
+.op.sel .caixa svg{opacity:1}
+.acao{margin-top:var(--respiro)}
+/* Continuar: largura toda, como o Começar, com a seta dentro */
+.acao.seguir{display:flex;justify-content:center}
+button.ok.continuar{width:100%;gap:10px}
+button.ok.continuar svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+/* abertura em dois grupos: título + descrição juntos, botão afastado */
+/* a descrição tem duas linhas equilibradas: numa linha só, no celular, cairia pra 14px */
+.intro .ajuda{margin-top:10px;font-size:min(22px,calc(var(--w) / 20.5));text-wrap:balance}
+.intro .acao{margin-top:48px}
+button.ok{width:100%;height:52px;background:var(--destaque);color:#fff;border:0;border-radius:999px;font:inherit;font-size:17px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s,transform .32s cubic-bezier(.34,1.25,.64,1)}
+/* hover só onde tem mouse: no toque ele gruda e a opção desmarcada fica escura */
+@media(hover:hover){
+  /* hover sutil: contorno só um tom acima (e a bolinha junto), a seta fica preta, sem mexer */
+  .op:hover{border-color:#D4D4D8}
+  .op:not(.sel):hover .caixa{border-color:#D4D4D8}
+  .ops.multi .op.sel:hover{border-color:var(--destaque)}
+  .ops:not(.multi) .op:hover::after{opacity:.7}
+  button.ok:hover{background:var(--destaque-hover)}
+}
+/* tela final: o anel gira enquanto envia, fecha, enche de preto e desenha o check */
+/* tela final: título no tamanho das perguntas (regra h1); descrição no tamanho da abertura */
+.fim .ajuda{margin-top:10px;font-size:min(22px,calc(var(--w) / 20.5))}
+.fim .ajuda{visibility:hidden;text-wrap:pretty}
+/* a descrição entra depois do título, que só troca quando o check termina (0,7s) */
+.fim.pronto .ajuda{visibility:visible;animation:aparece .35s ease .9s both}
+.troca{animation:aparece .35s ease both}
+@keyframes aparece{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.anel{width:88px;height:88px;display:block;margin:24px auto}
+.anel circle{fill:none;stroke-width:4.5;stroke-linecap:round}
+.anel .trilho{stroke:var(--trilho)}
+.anel .arco{stroke:var(--destaque);stroke-dasharray:151;stroke-dashoffset:110;transform-origin:center;animation:gira .9s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+.anel .miolo{fill:var(--destaque);stroke:none;transform-origin:center;transform:scale(0)}
+.anel .check{fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1}
+.fim.pronto .arco{animation:none;stroke-dashoffset:0;transition:stroke-dashoffset .45s ease}
+.fim.pronto .miolo{transform:scale(1);transition:transform .35s cubic-bezier(.3,1.6,.5,1) .35s}
+.fim.pronto .check{stroke-dashoffset:0;transition:stroke-dashoffset .35s ease .6s}
+.fim .acao[hidden]{display:none}
+/* no celular a margem lateral é menor: a coluna aproveita a tela */
+@media(max-width:640px){ :root{--margem:18px} .progresso{margin-top:28px} }
+.fim.erro .anel{display:none}
+/* a dor do anúncio some pra quem respondeu que ainda não investe */
+.op[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="coluna"><div class="progresso"><i id="prog"></i></div></div>
+
+<main>
+  <section class="tela intro on" data-t="0">
+    <h1>Descubra se a sua empresa deveria usar IA pra fechar mais vendas.</h1>
+    <p class="ajuda">E no final ganhe uma consulta gratuita.</p>
+    <div class="acao">
+      <button class="ok" onclick="depoisDoAperto(()=>vai(1))">Começar</button>
+    </div>
+  </section>
+
+  <section class="tela" data-t="1">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 1</div>
+    <h1>Como podemos te chamar?</h1>
+    <div class="campo"><input id="nome" placeholder="Seu nome"></div>
+    <div class="acao seguir"><button class="ok continuar" onclick="depoisDoAperto(proxima)">Continuar<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+  </section>
+  <section class="tela" data-t="2">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 2</div>
+    <h1 id="p2">O que a sua empresa vende?</h1>
+    <div class="campo"><input placeholder="A gente vende…"></div>
+    <div class="acao seguir"><button class="ok continuar" onclick="depoisDoAperto(proxima)">Continuar<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+  </section>
+  <section class="tela" data-t="3">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 3</div>
+    <h1>Quantos leads vocês recebem por mês?</h1>
+    <div class="ops">
+      <div class="op" onclick="escolhe(4)"><span class="letra">A</span> Menos de 100</div>
+      <div class="op" onclick="escolhe(4)"><span class="letra">B</span> De 100 a 300</div>
+      <div class="op" onclick="escolhe(4)"><span class="letra">C</span> De 300 a 1.000</div>
+      <div class="op" onclick="escolhe(4)"><span class="letra">D</span> Mais de 1.000</div>
+    </div>
+  </section>
+  <section class="tela" data-t="4">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 4</div>
+    <h1>De cada 10 leads, quantos tem interesse e tem perfil?</h1>
+    <div class="ops">
+      <div class="op" onclick="escolhe(5)"><span class="letra">A</span> 1 ou 2</div>
+      <div class="op" onclick="escolhe(5)"><span class="letra">B</span> 3 ou 4</div>
+      <div class="op" onclick="escolhe(5)"><span class="letra">C</span> 5 ou 6</div>
+      <div class="op" onclick="escolhe(5)"><span class="letra">D</span> 7 ou mais</div>
+    </div>
+  </section>
+  <section class="tela" data-t="5">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 5</div>
+    <h1>Quanto você já investe em anúncio por mês?</h1>
+    <div class="ops">
+      <div class="op" onclick="escolhe(6)"><span class="letra">A</span> Ainda não invisto</div>
+      <div class="op" onclick="escolhe(6)"><span class="letra">B</span> Até R$ 1.000</div>
+      <div class="op" onclick="escolhe(6)"><span class="letra">C</span> De R$ 1.000 a R$ 5.000</div>
+      <div class="op" onclick="escolhe(6)"><span class="letra">D</span> Mais de R$ 5.000</div>
+    </div>
+  </section>
+  <section class="tela" data-t="6">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 6</div>
+    <h1>Quem atende os seus clientes hoje?</h1>
+    <div class="ops">
+      <div class="op" onclick="escolhe(7)"><span class="letra">A</span> Eu mesmo</div>
+      <div class="op" onclick="escolhe(7)"><span class="letra">B</span> Uma atendente</div>
+      <div class="op" onclick="escolhe(7)"><span class="letra">C</span> Uma equipe de vendas</div>
+    </div>
+  </section>
+  <section class="tela" data-t="7">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 7</div>
+    <h1>O que mais te incomoda nas suas vendas hoje?</h1>
+    <div class="ops multi">
+      <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Não estou vendendo tanto quanto gostaria</div>
+      <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Muita gente manda mensagem e não fecha</div>
+      <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Não consigo responder todo mundo</div>
+      <div class="op" id="dor-anuncio" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Invisto em anúncio e não tenho resultado</div>
+    </div>
+    <div class="acao seguir"><button class="ok continuar" onclick="depoisDoAperto(proxima)">Continuar<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+  </section>
+  <section class="tela" data-t="8">
+    <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 8</div>
+    <h1>Qual o seu WhatsApp?</h1>
+    <div class="campo"><input id="fone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(62) 99999-9999"></div>
+    <div class="acao seguir"><button class="ok continuar" onclick="depoisDoAperto(proxima)">Continuar<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+  </section>
+  <section class="tela fim" data-t="9">
+    <svg class="anel" viewBox="0 0 58 58" aria-hidden="true"><circle class="trilho" cx="29" cy="29" r="24"/><circle class="arco" cx="29" cy="29" r="24"/><circle class="miolo" cx="29" cy="29" r="24"/><path class="check" pathLength="1" d="M19 29.5l7 7L39.5 23"/></svg>
+    <h1 id="fim-titulo" aria-live="polite">Enviando suas respostas…</h1>
+    <p class="ajuda">Em breve entraremos em contato pelo WhatsApp.</p>
+    <div class="acao" id="fim-erro" hidden><button class="ok" onclick="depoisDoAperto(finaliza)">Tentar de novo</button></div>
+  </section>
+</main>
+
+
+<script>
+const TOTAL=8; let atual=0; let enviado=false; let tituloFim='Pronto!<br>Recebemos suas informações.'; const historico=[]; const respostas={};
+const CAMPOS={1:'nome',2:'empresa',3:'volume_leads',4:'interesse_perfil',5:'investimento_anuncio',6:'quem_atende',7:'incomodo',8:'whatsapp'};
+const WEBHOOK='https://n8n.mrnia.com.br/webhook/consulta-imobiliaria';
+
+// Botões: agem 0,18s depois do toque, como a escolha única, pra mola do afundar aparecer.
+// Sem toque recente (Enter no teclado), agem na hora.
+let agindo=false;
+function depoisDoAperto(fn){
+  if(agindo) return;
+  if(performance.now()-ultimoAperto>400) return fn();
+  agindo=true; setTimeout(()=>{ agindo=false; fn(); },180);
+}
+// Escolha única: troca de pergunta 0,18s depois do clique, com a opção ainda voltando do afundar.
+// Esse corte no meio da volta é o efeito que ficou bom; a múltipla escolha imita ele no CSS.
+let escolhendo=false;
+function escolhe(n){ if(escolhendo) return; escolhendo=true; setTimeout(()=>{ escolhendo=false; vai(n); },180); }
+function vai(n,guardar=true){
+  if(guardar) historico.push(atual);
+  atual=n;
+  document.querySelectorAll('.tela').forEach(t=>t.classList.remove('on'));
+  const t=document.querySelector(`[data-t="${n}"]`); t.classList.add('on');
+  // a barra já começa com 6% na abertura e chega a 100% na última pergunta
+  document.getElementById('prog').style.width=Math.round(6+94*Math.min(n,TOTAL)/TOTAL)+'%';
+  // a dor do anúncio só aparece pra quem investe; se voltou e mudou pra "não invisto", desmarca
+  if(n===7){
+    const dor=document.getElementById('dor-anuncio');
+    const naoInveste=respostas.investimento_anuncio==='Ainda não invisto';
+    dor.hidden=naoInveste;
+    if(naoInveste && dor.classList.contains('sel')) alterna(dor);
+  }
+  sincronizaVoltar();
+  // foco automático só com mouse: no celular o campo ficava marcado sem abrir o teclado
+  const i=t.querySelector('input'); if(i && matchMedia('(hover:hover) and (pointer:fine)').matches) setTimeout(()=>i.focus(),80);
+}
+function volta(){ if(atual===9 || !historico.length) return; const n=historico.pop(); vai(n,false); }
+// Não tem botão de voltar na tela; volta() continua existindo, sem atalho.
+function sincronizaVoltar(){}
+function valido(){
+  const tela=document.querySelector('.tela.on');
+  if(tela.querySelector('.ops.multi')) return tela.querySelectorAll('.op.sel').length>0;
+  const campo=tela.querySelector('input');
+  if(!campo) return true;                       // telas de opção avançam no clique
+  const v=campo.value.trim();
+  if(campo.id==='fone') return v.replace(/\D/g,'').length>=10;
+  return v.length>=2;
+}
+function erro(){
+  const multi=document.querySelector('.tela.on .ops.multi');
+  if(multi){ multi.classList.add('erro'); setTimeout(()=>multi.classList.remove('erro'),900); return; }
+  const campo=document.querySelector('.tela.on input');
+  if(!campo) return;
+  campo.classList.add('erro');
+  campo.focus();
+  setTimeout(()=>campo.classList.remove('erro'),900);
+}
+// Identificadores do clique do Facebook. Sem eles, a Meta não casa o lead com
+// o anúncio que trouxe ele — e é esse casamento que deixa a campanha otimizar
+// por lead qualificado depois (ver "Otimizar o anúncio por lead qualificado").
+function rastreio(){
+  const url=new URL(location.href);
+  const fbclid=url.searchParams.get('fbclid')||'';
+  const cookie=n=>(document.cookie.match('(^|; )'+n+'=([^;]*)')||[])[2]||'';
+  // fbc é o formato que a Meta espera quando o fbclid vem na URL
+  const fbc=cookie('_fbc')||(fbclid?`fb.1.${Date.now()}.${fbclid}`:'');
+  return {fbclid, fbc, fbp:cookie('_fbp'), pagina:location.href, referencia:document.referrer||''};
+}
+// Devolve true só quando o n8n confirmou. Tenta duas vezes antes de desistir.
+async function envia(){
+  if(enviado) return true;
+  // rodando no computador (localhost) o envio é simulado: teste local não cria lead no Notion
+  if(['localhost','127.0.0.1'].includes(location.hostname)||location.hostname.startsWith('192.168.')){ await new Promise(r=>setTimeout(r,600)); enviado=true; return true; }
+  const dados={...respostas, ...rastreio(), origem:'formulario', quando:new Date().toISOString()};
+  for(let tentativa=0;tentativa<2;tentativa++){
+    try{
+      const r=await fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dados),keepalive:true});
+      if(r.ok){ enviado=true; return true; }
+    }catch(e){}
+    await new Promise(ok=>setTimeout(ok,800));
+  }
+  return false;
+}
+// Tela final: carrega enquanto envia (no mínimo 2,4s, pra animação aparecer)
+// e só comemora depois que o lead chegou. Se não chegar, pede pra tentar de novo.
+async function finaliza(){
+  const tela=document.querySelector('.fim'), titulo=document.getElementById('fim-titulo'), erroBox=document.getElementById('fim-erro');
+  const troca=t=>{ titulo.innerHTML=t; titulo.classList.remove('troca'); void titulo.offsetWidth; titulo.classList.add('troca'); };
+  erroBox.hidden=true; tela.classList.remove('pronto','erro'); troca('Enviando suas respostas…');
+  const frase=setTimeout(()=>troca('Analisando suas informações…'),1200);
+  const [ok]=await Promise.all([envia(), new Promise(r=>setTimeout(r,2400))]);
+  clearTimeout(frase);
+  if(!ok){ tela.classList.add('erro'); troca('Não conseguimos enviar suas respostas. Confere sua internet e tenta de novo.'); erroBox.hidden=false; return; }
+  tela.classList.add('pronto');
+  setTimeout(()=>{ troca(tituloFim); confete(); },700);
+}
+// Confete "realista": cinco camadas saindo de trás do check, com velocidade e tamanho
+// diferentes. Some sozinho pra quem pediu menos movimento.
+function confete(){
+  if(!window.confetti) return;
+  const r=document.querySelector('.fim .anel').getBoundingClientRect();
+  const base={colors:['#0A0A0A','#3F3F46','#A1A1AA','#D4D4D8'],disableForReducedMotion:true,
+    origin:{x:(r.left+r.width/2)/innerWidth,y:(r.top+r.height/2)/innerHeight}};
+  const total=innerWidth>640?220:160;
+  const camada=(parte,opt)=>confetti({...base,...opt,particleCount:Math.floor(total*parte)});
+  camada(.25,{spread:26,startVelocity:45});
+  camada(.2,{spread:60});
+  camada(.35,{spread:100,decay:.91,scalar:.8});
+  camada(.1,{spread:120,startVelocity:20,decay:.92,scalar:1.2});
+  camada(.1,{spread:120,startVelocity:35});
+}
+// Tela de múltipla escolha: alterna a opção e só avança no OK.
+// A cor (bolinha, check e contorno) entra quando a opção começa a voltar do afundar,
+// não enquanto ela desce. Pela tecla não tem afundar, então marca na hora.
+let ultimoAperto=-1e9; const pendentes=new Map();
+function marca(el){
+  const desdeAperto=performance.now()-ultimoAperto;
+  const espera=desdeAperto<400?Math.max(0,120-desdeAperto):0;
+  if(pendentes.has(el)){ clearTimeout(pendentes.get(el)); pendentes.delete(el); return; }   // dois toques seguidos se anulam
+  pendentes.set(el,setTimeout(()=>{ pendentes.delete(el); alterna(el); },espera));
+}
+// Continuar não pode validar antes da marcação pendente entrar: aplica tudo na hora.
+function aplicaPendentes(){ pendentes.forEach((t,el)=>{ clearTimeout(t); alterna(el); }); pendentes.clear(); }
+function alterna(el){
+  el.classList.toggle('sel');
+  const tela=el.closest('.tela');
+  const n=+tela.dataset.t;
+  const marcadas=[...tela.querySelectorAll('.op.sel')].map(o=>o.textContent.trim());
+  respostas[CAMPOS[n]]=marcadas;
+}
+// Nome com inicial maiúscula em cada palavra ("murilo nunes", "JOÃO" → "Murilo Nunes", "João"),
+// menos as partículas do meio (da, de, dos…). Vale pra pergunta seguinte, pra tela final e pro CRM.
+function capitaliza(t){
+  return t.split(/\s+/).map((p,i)=>{
+    if(i&&/^(da|de|do|das|dos|e)$/i.test(p)) return p.toLowerCase();
+    if(p.length>1&&p===p.toUpperCase()) p=p.toLowerCase();
+    return p.charAt(0).toUpperCase()+p.slice(1);
+  }).join(' ');
+}
+function proxima(){
+  aplicaPendentes();
+  if(atual>=9) return;
+  if(!valido()) return erro();
+  const campo=document.querySelector('.tela.on input');
+  if(campo) respostas[CAMPOS[atual]]=campo.value.trim();
+  if(atual===1) respostas.nome=capitaliza(respostas.nome);
+  if(atual===8){ historico.length=0; vai(9,false); sincronizaVoltar(); finaliza(); return; }
+  if(atual===1){
+    const nome=respostas.nome.split(' ')[0];
+    if(nome){
+      document.getElementById('p2').textContent=`O que a sua empresa vende, ${nome}?`;
+      const seguro=nome.replace(/[<>&"]/g,'');
+      tituloFim=`Pronto, ${seguro}!<br>Recebemos suas informações.`;
+    }
+  }
+  vai(atual+1);
+}
+document.addEventListener('keydown',e=>{
+  const tela=document.querySelector('.tela.on'); const n=+tela.dataset.t;
+  if(e.key==='Enter'){ const i=tela.querySelector('input'); if(i||tela.querySelector('.ops.multi')) proxima(); else if(n===0) vai(1); }
+  const letra=e.key.toUpperCase();
+  if(['A','B','C','D'].includes(letra)){
+    const ops=[...tela.querySelectorAll('.op')].filter(o=>!o.hidden); const idx='ABCD'.indexOf(letra);
+    if(ops[idx]) ops[idx].click();
+  }
+});
+// Um ouvinte só, no container: vale pra qualquer tela de opção.
+document.querySelector('main').addEventListener('click',e=>{
+  const op=e.target.closest('.op'); if(!op) return;
+  if(op.closest('.ops.multi')) return;   // múltipla escolha é tratada por marca()
+  const n=+op.closest('.tela').dataset.t;
+  // data-valor é o que vai pro CRM quando o texto na tela é diferente da opção no Notion
+  respostas[CAMPOS[n]]=op.dataset.valor||op.textContent.trim().replace(/^[A-D]\s*/,'');
+},true);
+
+// Afundar da opção e do botão: tempo fixo, como um clique. Desce em 120ms e volta com a mola,
+// não importa quanto tempo o dedo ou o mouse fica apertado.
+document.querySelector('main').addEventListener('pointerdown',e=>{
+  const op=e.target.closest('.op, button.ok'); if(!op) return;
+  ultimoAperto=performance.now();
+  op.classList.add('apertando');
+  setTimeout(()=>op.classList.remove('apertando'),120);
+});
+
+// Campo de digitar: o input tem só a largura do texto (ou do exemplo, se vazio),
+// medida num espelho com a mesma fonte. Clicar em qualquer lugar da linha foca o campo.
+const espelho=document.createElement('span');
+espelho.style.cssText='position:absolute;visibility:hidden;white-space:pre;font:500 24px Geist,-apple-system,sans-serif';
+document.body.appendChild(espelho);
+function ajustaLargura(i){
+  espelho.style.fontWeight=i.value?'500':'400';
+  espelho.textContent=i.value||i.placeholder;
+  i.style.width=(espelho.getBoundingClientRect().width+4)+'px';
+}
+document.querySelectorAll('.campo').forEach(c=>{
+  const i=c.querySelector('input');
+  c.addEventListener('mousedown',e=>{ if(e.target!==i){ e.preventDefault(); i.focus(); } });
+  i.addEventListener('input',()=>ajustaLargura(i));
+  ajustaLargura(i);
+});
+document.fonts&&document.fonts.ready.then(()=>document.querySelectorAll('.campo input').forEach(ajustaLargura));
+
+// telefone: só dígitos, formatado enquanto digita
+const fone=document.getElementById('fone');
+fone.addEventListener('input',()=>{
+  let d=fone.value.replace(/\D/g,'').slice(0,11);
+  let v=d;
+  if(d.length>2) v='('+d.slice(0,2)+') '+d.slice(2);
+  if(d.length>7) v='('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);
+  fone.value=v;
+  ajustaLargura(fone);   // a máscara muda o texto depois da medida
+});
+</script>
+</body>
+</html>
