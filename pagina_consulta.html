@@ -161,7 +161,7 @@ button.ok{width:100%;height:52px;background:var(--destaque);color:#fff;border:0;
   </section>
   <section class="tela" data-t="3">
     <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 3</div>
-    <h1>Quantos leads vocês recebem por mês?</h1>
+    <h1>Quantas pessoas novas entram em contato por mês?</h1>
     <div class="ops">
       <div class="op" onclick="escolhe(4)"><span class="letra">A</span> Menos de 100</div>
       <div class="op" onclick="escolhe(4)"><span class="letra">B</span> De 100 a 300</div>
@@ -171,12 +171,12 @@ button.ok{width:100%;height:52px;background:var(--destaque);color:#fff;border:0;
   </section>
   <section class="tela" data-t="4">
     <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 4</div>
-    <h1>De cada 10 leads, quantos tem interesse e tem perfil?</h1>
+    <h1>De cada 10 pessoas que mandam mensagem, quantas acabam virando venda?</h1>
     <div class="ops">
       <div class="op" onclick="escolhe(5)"><span class="letra">A</span> 1 ou 2</div>
       <div class="op" onclick="escolhe(5)"><span class="letra">B</span> 3 ou 4</div>
-      <div class="op" onclick="escolhe(5)"><span class="letra">C</span> 5 ou 6</div>
-      <div class="op" onclick="escolhe(5)"><span class="letra">D</span> 7 ou mais</div>
+      <div class="op" onclick="escolhe(5)"><span class="letra">C</span> 5 ou mais</div>
+      <div class="op" onclick="escolhe(5)"><span class="letra">D</span> Não sei</div>
     </div>
   </section>
   <section class="tela" data-t="5">
@@ -226,7 +226,7 @@ button.ok{width:100%;height:52px;background:var(--destaque);color:#fff;border:0;
 
 <script>
 const TOTAL=8; let atual=0; let enviado=false; let tituloFim='Pronto!<br>Recebemos suas informações.'; const historico=[]; const respostas={};
-const CAMPOS={1:'nome',2:'empresa',3:'volume_leads',4:'interesse_perfil',5:'investimento_anuncio',6:'quem_atende',7:'incomodo',8:'whatsapp'};
+const CAMPOS={1:'nome',2:'empresa',3:'volume_leads',4:'conversao',5:'investimento_anuncio',6:'quem_atende',7:'incomodo',8:'whatsapp'};
 const WEBHOOK='https://n8n.mrnia.com.br/webhook/consulta-imobiliaria';
 
 // Botões: agem 0,18s depois do toque, como a escolha única, pra mola do afundar aparecer.
