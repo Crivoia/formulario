@@ -183,7 +183,7 @@ button.ok{width:100%;height:52px;background:var(--destaque);color:#fff;border:0;
     <div class="num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M13 6l6 6-6 6"/></svg> 5</div>
     <h1>Quanto você já investe em anúncio por mês?</h1>
     <div class="ops">
-      <div class="op" onclick="escolhe(6)"><span class="letra">A</span> Ainda não invisto</div>
+      <div class="op" onclick="escolhe(6)"><span class="letra">A</span> Ainda não uso anúncios</div>
       <div class="op" onclick="escolhe(6)"><span class="letra">B</span> Até R$ 1.000</div>
       <div class="op" onclick="escolhe(6)"><span class="letra">C</span> De R$ 1.000 a R$ 5.000</div>
       <div class="op" onclick="escolhe(6)"><span class="letra">D</span> Mais de R$ 5.000</div>
@@ -248,10 +248,10 @@ function vai(n,guardar=true){
   const t=document.querySelector(`[data-t="${n}"]`); t.classList.add('on');
   // a barra já começa com 6% na abertura e chega a 100% na última pergunta
   document.getElementById('prog').style.width=Math.round(6+94*Math.min(n,TOTAL)/TOTAL)+'%';
-  // a dor do anúncio só aparece pra quem investe; se voltou e mudou pra "não invisto", desmarca
+  // a dor do anúncio só aparece pra quem usa anúncio; se voltou e mudou pra "ainda não uso", desmarca
   if(n===7){
     const dor=document.getElementById('dor-anuncio');
-    const naoInveste=respostas.investimento_anuncio==='Ainda não invisto';
+    const naoInveste=respostas.investimento_anuncio==='Ainda não uso anúncios';
     dor.hidden=naoInveste;
     if(naoInveste && dor.classList.contains('sel')) alterna(dor);
   }
