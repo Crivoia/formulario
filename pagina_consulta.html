@@ -205,6 +205,7 @@ button.ok{width:100%;height:52px;background:var(--destaque);color:#fff;border:0;
       <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Não estou vendendo tanto quanto gostaria</div>
       <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Muita gente manda mensagem e não fecha</div>
       <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Não consigo responder todo mundo</div>
+      <div class="op" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Não tenho controle dos meus atendimentos</div>
       <div class="op" id="dor-anuncio" onclick="marca(this)"><span class="caixa"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l5 5L19 7"/></svg></span> Invisto em anúncio e não tenho resultado</div>
     </div>
     <div class="acao seguir"><button class="ok continuar" onclick="depoisDoAperto(proxima)">Continuar<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
@@ -384,8 +385,8 @@ document.addEventListener('keydown',e=>{
   const tela=document.querySelector('.tela.on'); const n=+tela.dataset.t;
   if(e.key==='Enter'){ const i=tela.querySelector('input'); if(i||tela.querySelector('.ops.multi')) proxima(); else if(n===0) vai(1); }
   const letra=e.key.toUpperCase();
-  if(['A','B','C','D'].includes(letra)){
-    const ops=[...tela.querySelectorAll('.op')].filter(o=>!o.hidden); const idx='ABCD'.indexOf(letra);
+  if(['A','B','C','D','E'].includes(letra)){
+    const ops=[...tela.querySelectorAll('.op')].filter(o=>!o.hidden); const idx='ABCDE'.indexOf(letra);
     if(ops[idx]) ops[idx].click();
   }
 });
